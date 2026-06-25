@@ -1,0 +1,160 @@
+-- Configurações Iniciais
+local AimbotSettings = {
+    Enabled = true,
+    TeamCheck = false, -- Desativado para funcionar no Flick (FFA)
+    AliveCheck = true,
+    AimPart = "Head",
+    Sensitivity = 0.1,
+    Fov = 150
+}
+
+-- Serviços do Roblox
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Criando o Círculo de FOV (Desenho na Tela)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+FOVCircle.Radius = AimbotSettings.Fov
+FOVCircle.Color = Color3.fromRGB(0, 255, 150)
+FOVCircle.Thickness = 2
+FOVCircle.Filled = false
+FOVCircle.Visible = true
+
+-- Criando a Interface Visual (GUI) Moderna
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local ToggleButton = Instance.new("TextButton")
+local StatusLabel = Instance.new("TextLabel")
+local UICorner = Instance.new("UICorner")
+local UIStroke = Instance.new("UIStroke")
+
+-- Proteção para a GUI não sumir ao morrer
+ScreenGui.Name = "AimbotMenu"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Design do Painel Principal
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 220, 0, 140)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Você pode arrastar o menu pela tela
+
+local PanelCorner = UICorner:Clone()
+PanelCorner.CornerRadius = UDim.new(0, 8)
+PanelCorner.Parent = MainFrame
+
+local PanelStroke = UIStroke:Clone()
+PanelStroke.Color = Color3.fromRGB(0, 255, 150)
+PanelStroke.Thickness = 1.5
+PanelStroke.Parent = MainFrame
+
+-- Título do Menu
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Title.BackgroundTransparency = 1.0
+Title.Position = UDim2.new(0, 0, 0, 5)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "AIMBOT v2.0"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16.0
+
+-- Botão de Ligar/Desligar
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = MainFrame
+ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+ToggleButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+ToggleButton.Size = UDim2.new(0.8, 0, 0, 35)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Text = "DESATIVAR"
+ToggleButton.TextColor3 = Color3.fromRGB(15, 15, 20)
+ToggleButton.TextSize = 14.0
+
+local ButtonCorner = UICorner:Clone()
+ButtonCorner.CornerRadius = UDim.new(0, 6)
+ButtonCorner.Parent = ToggleButton
+
+-- Texto de Status
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundTransparency = 1.0
+StatusLabel.Position = UDim2.new(0, 0, 0.7, 0)
+StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "Status: Ativado"
+StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+StatusLabel.TextSize = 12.0
+
+-- Interação do Botão (Ligar/Desligar)
+ToggleButton.MouseButton1Click:Connect(function()
+    AimbotSettings.Enabled = not AimbotSettings.Enabled
+    FOVCircle.Visible = AimbotSettings.Enabled
+    
+    if AimbotSettings.Enabled then
+        ToggleButton.Text = "DESATIVAR"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+        StatusLabel.Text = "Status: Ativado"
+    else
+        ToggleButton.Text = "ATIVAR"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
+        StatusLabel.Text = "Status: Desativado"
+    end
+end)
+
+-- Tecla 'Insert' Oculta/Mostra o Menu na Tela
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.Insert then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- Lógica de Busca de Alvos
+local function GetClosestPlayer()
+    local MaximumDistance = AimbotSettings.Fov
+    local Target = nil
+
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer then
+            if v.Character and v.Character:FindFirstChild(AimbotSettings.AimPart) then
+                if AimbotSettings.TeamCheck and v.Team == LocalPlayer.Team then continue end
+                if AimbotSettings.AliveCheck and v.Character:FindFirstChildOfClass("Humanoid") and v.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then continue end
+                
+                local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(v.Character[AimbotSettings.AimPart].Position)
+                if OnScreen then
+                    local MousePosition = Vector2.new(LocalPlayer:GetMouse().X, LocalPlayer:GetMouse().Y)
+                    local Distance = (Vector2.new(ScreenPoint.X, ScreenPoint.Y) - MousePosition).Magnitude
+                    
+                    if Distance < MaximumDistance then
+                        MaximumDistance = Distance
+                        Target = v
+                    end
+                end
+            end
+        end
+    end
+    return Target
+end
+
+-- Loop de Renderização do Aimbot
+RunService.RenderStepped:Connect(function()
+    if AimbotSettings.Enabled then
+        local Target = GetClosestPlayer()
+        if Target and Target.Character and Target.Character:FindFirstChild(AimbotSettings.AimPart) then
+            local TargetPosition = Target.Character[AimbotSettings.AimPart].Position
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, TargetPosition), AimbotSettings.Sensitivity)
+        end
+    end
+end)
+
